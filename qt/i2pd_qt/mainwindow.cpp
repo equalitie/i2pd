@@ -233,16 +233,16 @@ MainWindow::MainWindow(QWidget *parent) :
 
     initCheckBox(       OPTION("upnp","enabled",[]{return "true";}), uiSettings->enableUPnPCheckBox);
     initStringBox(      OPTION("upnp","name",[]{return "I2Pd";}), uiSettings->upnpNameLineEdit);
-	
+
     initCheckBox(       OPTION("precomputation","elgamal",[]{return "false";}), uiSettings->useElGamalPrecomputedTablesCheckBox);
-	
+
     initCheckBox(       OPTION("reseed","verify",[]{return "";}), uiSettings->reseedVerifyCheckBox);
     initFileChooser(    OPTION("reseed","file",[]{return "";}), uiSettings->reseedFileLineEdit, uiSettings->reseedFileBrowsePushButton);
     initStringBox(      OPTION("reseed","urls",[]{return "";}), uiSettings->reseedURLsLineEdit);
-	
+
     initStringBox(      OPTION("addressbook","defaulturl",[]{return "";}), uiSettings->addressbookDefaultURLLineEdit);
     initStringBox(      OPTION("addressbook","subscriptions",[]{return "";}), uiSettings->addressbookSubscriptionsURLslineEdit);
-	
+
     initUInt16Box(     OPTION("limits","transittunnels",[]{return "2500";}), uiSettings->maxNumOfTransitTunnelsLineEdit, tr("maxNumberOfTransitTunnels"));
     initUInt16Box(     OPTION("limits","openfiles",[]{return "0";}), uiSettings->maxNumOfOpenFilesLineEdit, tr("maxNumberOfOpenFiles"));
     initUInt32Box(     OPTION("limits","coresize",[]{return "0";}), uiSettings->coreFileMaxSizeNumberLineEdit, tr("coreFileMaxSize"));
@@ -349,7 +349,9 @@ QString MainWindow::getStatusPageHtml(bool showHiddenInfo) {
     s << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">";
 
     switch (statusPage) {
-    case main_page: i2p::http::ShowStatus(s, showHiddenInfo);break;
+    case main_page:
+        i2p::http::ShowStatus(s, showHiddenInfo, i2p::http::OutputFormatEnum::forQtUi);
+        break;
     case commands: break;
     case local_destinations: i2p::http::ShowLocalDestinations(s);break;
     case leasesets: i2p::http::ShowLeasesSets(s); break;
@@ -449,7 +451,7 @@ void MainWindow::createTrayIcon() {
 }
 
 void MainWindow::setIcon() {
-    QIcon icon(":/images/icon.png");
+    QIcon icon(":icons/mask");
     trayIcon->setIcon(icon);
     setWindowIcon(icon);
 

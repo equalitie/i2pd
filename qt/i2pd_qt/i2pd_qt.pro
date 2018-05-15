@@ -29,6 +29,7 @@ SOURCES += DaemonQT.cpp mainwindow.cpp \
     ../../libi2pd/Base.cpp \
     ../../libi2pd/BloomFilter.cpp \
     ../../libi2pd/Config.cpp \
+    ../../libi2pd/CPU.cpp \
     ../../libi2pd/Crypto.cpp \
 	../../libi2pd/CryptoKey.cpp \
     ../../libi2pd/Datagram.cpp \
@@ -176,7 +177,9 @@ HEADERS  += DaemonQT.h mainwindow.h \
     textbrowsertweaked1.h \
     pagewithbackbutton.h \
     widgetlock.h \
-    widgetlockregistry.h
+    widgetlockregistry.h \
+    i2pd.rc \
+    i2pd.rc
 
 INCLUDEPATH += ../../libi2pd
 INCLUDEPATH += ../../libi2pd_client
@@ -267,8 +270,33 @@ android {
 }
 
 linux:!android {
-	message("Using Linux settings")
-	LIBS += -lcrypto -lssl -lboost_system -lboost_date_time -lboost_filesystem -lboost_program_options -lpthread -lminiupnpc
+        message("Using Linux settings")
+        LIBS += -lcrypto -lssl -lboost_system -lboost_date_time -lboost_filesystem -lboost_program_options -lpthread -lminiupnpc
+}
+
+windows {
+        message("Using Windows settings")
+        RC_FILE = i2pd.rc
+        DEFINES += BOOST_USE_WINDOWS_H WINDOWS _WINDOWS WIN32_LEAN_AND_MEAN MINIUPNP_STATICLIB
+        DEFINES -= UNICODE _UNICODE
+        BOOST_SUFFIX = -mt
+        QMAKE_CXXFLAGS = -Os
+        QMAKE_LFLAGS = -s -Wl,-Bstatic -static-libgcc -static-libstdc++ -mwindows
+
+        LIBS = -lminiupnpc \
+        -lboost_system$$BOOST_SUFFIX \
+        -lboost_date_time$$BOOST_SUFFIX \
+        -lboost_filesystem$$BOOST_SUFFIX \
+        -lboost_program_options$$BOOST_SUFFIX \
+        -lssl \
+        -lcrypto \
+        -lz \
+        -lwsock32 \
+        -lws2_32 \
+        -lgdi32 \
+        -liphlpapi \
+        -lstdc++ \
+        -lpthread
 }
 
 !android:!symbian:!maemo5:!simulator {

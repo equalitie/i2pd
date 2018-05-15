@@ -69,6 +69,18 @@ namespace tunnel
 		m_Tests.clear ();
 	}
 
+	bool TunnelPool::Reconfigure(int inHops, int outHops, int inQuant, int outQuant)	{
+		if( inHops >= 0 && outHops >= 0 && inQuant > 0 && outQuant > 0)
+		{
+			m_NumInboundHops = inHops;
+			m_NumOutboundHops = outHops;
+			m_NumInboundTunnels = inQuant;
+			m_NumOutboundTunnels = outQuant;
+			return true;
+		}
+		return false;
+	}
+	
 	void TunnelPool::TunnelCreated (std::shared_ptr<InboundTunnel> createdTunnel)
 	{
 		if (!m_IsActive) return;
@@ -298,13 +310,13 @@ namespace tunnel
 			}
 			if (!failed)
 			{
- 				uint32_t msgID;
+				uint32_t msgID;
 				RAND_bytes ((uint8_t *)&msgID, 4);
 				{
 					std::unique_lock<std::mutex> l(m_TestsMutex);
- 					m_Tests[msgID] = std::make_pair (*it1, *it2);
+					m_Tests[msgID] = std::make_pair (*it1, *it2);
 				}
- 				(*it1)->SendTunnelDataMsg ((*it2)->GetNextIdentHash (), (*it2)->GetNextTunnelID (),
+				(*it1)->SendTunnelDataMsg ((*it2)->GetNextIdentHash (), (*it2)->GetNextTunnelID (),
 					CreateDeliveryStatusMsg (msgID));
 				++it1; ++it2;
 			}
@@ -479,11 +491,17 @@ namespace tunnel
 			outboundTunnel = tunnels.GetNextOutboundTunnel ();
 		LogPrint (eLogDebug, "Tunnels: Re-creating destination inbound tunnel...");
 		std::shared_ptr<TunnelConfig> config;
-		if (m_NumInboundHops > 0) config = std::make_shared<TunnelConfig>(tunnel->GetPeers ());
-		auto newTunnel = tunnels.CreateInboundTunnel (config, outboundTunnel);
-		newTunnel->SetTunnelPool (shared_from_this());
-		if (newTunnel->IsEstablished ()) // zero hops
-			TunnelCreated (newTunnel);
+		if (m_NumInboundHops > 0 && tunnel->GetPeers().size())
+		{
+			config = std::make_shared<TunnelConfig>(tunnel->GetPeers ());
+		}
+		if (m_NumInboundHops == 0 || config)
+		{
+			auto newTunnel = tunnels.CreateInboundTunnel (config, outboundTunnel);
+			newTunnel->SetTunnelPool (shared_from_this());
+			if (newTunnel->IsEstablished ()) // zero hops
+				TunnelCreated (newTunnel);
+		}
 	}
 
 	void TunnelPool::CreateOutboundTunnel ()
@@ -521,12 +539,17 @@ namespace tunnel
 		{
 			LogPrint (eLogDebug, "Tunnels: Re-creating destination outbound tunnel...");
 			std::shared_ptr<TunnelConfig> config;
-			if (m_NumOutboundHops > 0)
+			if (m_NumOutboundHops > 0 && tunnel->GetPeers().size())
+			{
 				config = std::make_shared<TunnelConfig>(tunnel->GetPeers (), inboundTunnel->GetNextTunnelID (), inboundTunnel->GetNextIdentHash ());
-			auto newTunnel = tunnels.CreateOutboundTunnel (config);
-			newTunnel->SetTunnelPool (shared_from_this ());
-			if (newTunnel->IsEstablished ()) // zero hops
-				TunnelCreated (newTunnel);
+			}
+			if(m_NumOutboundHops == 0 || config)
+			{
+				auto newTunnel = tunnels.CreateOutboundTunnel (config);
+				newTunnel->SetTunnelPool (shared_from_this ());
+				if (newTunnel->IsEstablished ()) // zero hops
+					TunnelCreated (newTunnel);
+			}
 		}
 		else
 			LogPrint (eLogDebug, "Tunnels: Can't re-create outbound tunnel, no inbound tunnels found");

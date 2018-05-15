@@ -12,6 +12,7 @@
 #include "RouterInfo.h"
 #include "I2NPProtocol.h"
 #include "TransportSession.h"
+#include "CryptoWorker.h"
 
 namespace i2p
 {
@@ -34,6 +35,8 @@ namespace transport
 		} encrypted;
 	};
 
+	struct NTCPWork;
+
 	const size_t NTCP_MAX_MESSAGE_SIZE = 16384;
 	const size_t NTCP_BUFFER_SIZE = 1028; // fits 1 tunnel data message
 	const int NTCP_CONNECT_TIMEOUT = 5; // 5 seconds
@@ -55,6 +58,7 @@ namespace transport
 			void Done ();
 
 			boost::asio::ip::tcp::socket& GetSocket () { return m_Socket; };
+			boost::asio::io_service & GetService();
 			bool IsEstablished () const { return m_IsEstablished; };
 			bool IsTerminated () const { return m_IsTerminated; };
 
@@ -75,12 +79,12 @@ namespace transport
 			void SendPhase3 ();
 			void HandlePhase1Sent (const boost::system::error_code& ecode,  std::size_t bytes_transferred);
 			void HandlePhase2Received (const boost::system::error_code& ecode, std::size_t bytes_transferred);
-			void HandlePhase2 ();
+			void HandlePhase2 (NTCPWork * work=nullptr);
 			void HandlePhase3Sent (const boost::system::error_code& ecode, std::size_t bytes_transferred, uint32_t tsA);
 			void HandlePhase4Received (const boost::system::error_code& ecode, std::size_t bytes_transferred, uint32_t tsA);
 
 			//server
-			void SendPhase2 ();
+			void SendPhase2 (NTCPWork * work=nullptr);
 			void SendPhase4 (uint32_t tsA, uint32_t tsB);
 			void HandlePhase1Received (const boost::system::error_code& ecode, std::size_t bytes_transferred);
 			void HandlePhase2Sent (const boost::system::error_code& ecode, std::size_t bytes_transferred, uint32_t tsB);
@@ -131,6 +135,8 @@ namespace transport
 	{
 		public:
 
+			typedef i2p::worker::ThreadPool<NTCPSession> Pool;
+
 			enum RemoteAddressType
 			{
 				eIP4Address,
@@ -146,7 +152,7 @@ namespace transport
 			};
 
 
-			NTCPServer ();
+			NTCPServer (int workers=4);
 			~NTCPServer ();
 
 			void Start ();
@@ -169,6 +175,10 @@ namespace transport
 
 			void SetSessionLimits(uint16_t softLimit, uint16_t hardLimit) { m_SoftLimit = softLimit; m_HardLimit = hardLimit; }
 			bool ShouldLimit() const { return ShouldHardLimit() || ShouldSoftLimit(); }
+			void Work(std::shared_ptr<NTCPSession> conn, Pool::WorkFunc work)
+			{
+				m_CryptoPool->Offer({conn, work});
+			}
 		private:
 
 			/** @brief return true for hard limit */
@@ -209,6 +219,8 @@ namespace transport
 			uint16_t m_ProxyPort;
 			boost::asio::ip::tcp::resolver m_Resolver;
 			boost::asio::ip::tcp::endpoint * m_ProxyEndpoint;
+
+			std::shared_ptr<Pool> m_CryptoPool;
 
 			uint16_t m_SoftLimit, m_HardLimit;
 		public:

@@ -12,9 +12,9 @@ namespace crypto
 		memcpy (m_PublicKey, pub, 256);
 	}
 
-	void ElGamalEncryptor::Encrypt (const uint8_t * data, uint8_t * encrypted, BN_CTX * ctx)
+	void ElGamalEncryptor::Encrypt (const uint8_t * data, uint8_t * encrypted, BN_CTX * ctx, bool zeroPadding)
 	{
-		ElGamalEncrypt (m_PublicKey, data, encrypted, ctx, true);
+		ElGamalEncrypt (m_PublicKey, data, encrypted, ctx, zeroPadding);
 	}
 
 	ElGamalDecryptor::ElGamalDecryptor (const uint8_t * priv)
@@ -22,9 +22,9 @@ namespace crypto
 		memcpy (m_PrivateKey, priv, 256);
 	}
 
-	bool ElGamalDecryptor::Decrypt (const uint8_t * encrypted, uint8_t * data, BN_CTX * ctx)
+	bool ElGamalDecryptor::Decrypt (const uint8_t * encrypted, uint8_t * data, BN_CTX * ctx, bool zeroPadding)
 	{
-		return ElGamalDecrypt (m_PrivateKey, encrypted, data, ctx, true);
+		return ElGamalDecrypt (m_PrivateKey, encrypted, data, ctx, zeroPadding);
 	}
 
 	ECIESP256Encryptor::ECIESP256Encryptor (const uint8_t * pub)
@@ -44,10 +44,10 @@ namespace crypto
 		if (m_PublicKey) EC_POINT_free (m_PublicKey);
 	}
 
-	void ECIESP256Encryptor::Encrypt (const uint8_t * data, uint8_t * encrypted, BN_CTX * ctx)
+	void ECIESP256Encryptor::Encrypt (const uint8_t * data, uint8_t * encrypted, BN_CTX * ctx, bool zeroPadding)
 	{
 		if (m_Curve && m_PublicKey)
-			ECIESEncrypt (m_Curve, m_PublicKey, data, encrypted, ctx);
+			ECIESEncrypt (m_Curve, m_PublicKey, data, encrypted, ctx, zeroPadding);
 	}
 
 	ECIESP256Decryptor::ECIESP256Decryptor (const uint8_t * priv)
@@ -62,17 +62,17 @@ namespace crypto
 		if (m_PrivateKey) BN_free (m_PrivateKey);
 	}
 
-	bool ECIESP256Decryptor::Decrypt (const uint8_t * encrypted, uint8_t * data, BN_CTX * ctx)
+	bool ECIESP256Decryptor::Decrypt (const uint8_t * encrypted, uint8_t * data, BN_CTX * ctx, bool zeroPadding)
 	{
 		if (m_Curve && m_PrivateKey)
-			return ECIESDecrypt (m_Curve, m_PrivateKey, encrypted, data, ctx);
+			return ECIESDecrypt (m_Curve, m_PrivateKey, encrypted, data, ctx, zeroPadding);
 		return false;
 	}
 
 	void CreateECIESP256RandomKeys (uint8_t * priv, uint8_t * pub)
 	{
 		EC_GROUP * curve = EC_GROUP_new_by_curve_name (NID_X9_62_prime256v1);
-		EC_POINT * p = nullptr; 
+		EC_POINT * p = nullptr;
 		BIGNUM * key = nullptr;
 		GenerateECIESKeyPair (curve, key, p);
 		bn2buf (key, priv, 32);
@@ -81,11 +81,11 @@ namespace crypto
 		BIGNUM * x = BN_new (), * y = BN_new ();
 		EC_POINT_get_affine_coordinates_GFp (curve, p, x, y, NULL);
 		bn2buf (x, pub, 32);
-		bn2buf (y, pub + 32, 32);				
+		bn2buf (y, pub + 32, 32);
 		RAND_bytes (pub + 64, 192);
-		EC_POINT_free (p); 
+		EC_POINT_free (p);
 		BN_free (x); BN_free (y);
-		EC_GROUP_free (curve);	
+		EC_GROUP_free (curve);
 	}
 
 	ECIESGOSTR3410Encryptor::ECIESGOSTR3410Encryptor (const uint8_t * pub)
@@ -104,10 +104,10 @@ namespace crypto
 		if (m_PublicKey) EC_POINT_free (m_PublicKey);
 	}
 
-	void ECIESGOSTR3410Encryptor::Encrypt (const uint8_t * data, uint8_t * encrypted, BN_CTX * ctx)
+	void ECIESGOSTR3410Encryptor::Encrypt (const uint8_t * data, uint8_t * encrypted, BN_CTX * ctx, bool zeroPadding)
 	{
 		if (m_PublicKey)
-			ECIESEncrypt (GetGOSTR3410Curve (eGOSTR3410CryptoProA)->GetGroup (), m_PublicKey, data, encrypted, ctx);
+			ECIESEncrypt (GetGOSTR3410Curve (eGOSTR3410CryptoProA)->GetGroup (), m_PublicKey, data, encrypted, ctx, zeroPadding);
 	}
 
 	ECIESGOSTR3410Decryptor::ECIESGOSTR3410Decryptor (const uint8_t * priv)
@@ -120,10 +120,10 @@ namespace crypto
 		if (m_PrivateKey) BN_free (m_PrivateKey);
 	}
 
-	bool ECIESGOSTR3410Decryptor::Decrypt (const uint8_t * encrypted, uint8_t * data, BN_CTX * ctx)
+	bool ECIESGOSTR3410Decryptor::Decrypt (const uint8_t * encrypted, uint8_t * data, BN_CTX * ctx, bool zeroPadding)
 	{
 		if (m_PrivateKey)
-			return ECIESDecrypt (GetGOSTR3410Curve (eGOSTR3410CryptoProA)->GetGroup (), m_PrivateKey, encrypted, data, ctx);
+			return ECIESDecrypt (GetGOSTR3410Curve (eGOSTR3410CryptoProA)->GetGroup (), m_PrivateKey, encrypted, data, ctx, zeroPadding);
 		return false;
 	}
 
@@ -131,7 +131,7 @@ namespace crypto
 	void CreateECIESGOSTR3410RandomKeys (uint8_t * priv, uint8_t * pub)
 	{
 		auto& curve = GetGOSTR3410Curve (eGOSTR3410CryptoProA);
-		EC_POINT * p = nullptr; 
+		EC_POINT * p = nullptr;
 		BIGNUM * key = nullptr;
 		GenerateECIESKeyPair (curve->GetGroup (), key, p);
 		bn2buf (key, priv, 32);
@@ -140,9 +140,9 @@ namespace crypto
 		BIGNUM * x = BN_new (), * y = BN_new ();
 		EC_POINT_get_affine_coordinates_GFp (curve->GetGroup (), p, x, y, NULL);
 		bn2buf (x, pub, 32);
-		bn2buf (y, pub + 32, 32);				
+		bn2buf (y, pub + 32, 32);
 		RAND_bytes (pub + 64, 192);
-		EC_POINT_free (p); 
+		EC_POINT_free (p);
 		BN_free (x); BN_free (y);
 	}
 

@@ -65,9 +65,10 @@ namespace client
 		m_MethodHandlers["RouterInfo"]     = &I2PControlService::RouterInfoHandler;
 		m_MethodHandlers["RouterManager"]  = &I2PControlService::RouterManagerHandler;
 		m_MethodHandlers["NetworkSetting"] = &I2PControlService::NetworkSettingHandler;
+		m_MethodHandlers["ClientServicesInfo"]     = &I2PControlService::ClientServicesInfoHandler;
 
 		// I2PControl
-		m_I2PControlHandlers["i2pcontrol.password"] = &I2PControlService::PasswordHandler; 
+		m_I2PControlHandlers["i2pcontrol.password"] = &I2PControlService::PasswordHandler;
 
 		// RouterInfo
 		m_RouterInfoHandlers["i2p.router.uptime"]  = &I2PControlService::UptimeHandler;
@@ -80,18 +81,26 @@ namespace client
 		m_RouterInfoHandlers["i2p.router.net.status"]         = &I2PControlService::NetStatusHandler;
 		m_RouterInfoHandlers["i2p.router.net.tunnels.participating"] = &I2PControlService::TunnelsParticipatingHandler;
 		m_RouterInfoHandlers["i2p.router.net.tunnels.successrate"] =
-&I2PControlService::TunnelsSuccessRateHandler;	
+&I2PControlService::TunnelsSuccessRateHandler;
 		m_RouterInfoHandlers["i2p.router.net.total.received.bytes"]  = &I2PControlService::NetTotalReceivedBytes;
 		m_RouterInfoHandlers["i2p.router.net.total.sent.bytes"]      = &I2PControlService::NetTotalSentBytes;
 
-		// RouterManager	
+		// RouterManager
 		m_RouterManagerHandlers["Reseed"]           = &I2PControlService::ReseedHandler;
-		m_RouterManagerHandlers["Shutdown"]         = &I2PControlService::ShutdownHandler; 
+		m_RouterManagerHandlers["Shutdown"]         = &I2PControlService::ShutdownHandler;
 		m_RouterManagerHandlers["ShutdownGraceful"] = &I2PControlService::ShutdownGracefulHandler;
 
 		// NetworkSetting
 		m_NetworkSettingHandlers["i2p.router.net.bw.in"]  = &I2PControlService::InboundBandwidthLimit;
 		m_NetworkSettingHandlers["i2p.router.net.bw.out"] = &I2PControlService::OutboundBandwidthLimit;
+
+		// ClientServicesInfo
+		m_ClientServicesInfoHandlers["I2PTunnel"] = &I2PControlService::I2PTunnelInfoHandler;
+		m_ClientServicesInfoHandlers["HTTPProxy"] = &I2PControlService::HTTPProxyInfoHandler;
+		m_ClientServicesInfoHandlers["SOCKS"] = &I2PControlService::SOCKSInfoHandler;
+		m_ClientServicesInfoHandlers["SAM"] = &I2PControlService::SAMInfoHandler;
+		m_ClientServicesInfoHandlers["BOB"] = &I2PControlService::BOBInfoHandler;
+		m_ClientServicesInfoHandlers["I2CP"] = &I2PControlService::I2CPInfoHandler;
 	}
 
 	I2PControlService::~I2PControlService ()
@@ -133,8 +142,8 @@ namespace client
 				m_Service.run ();
 			} catch (std::exception& ex) {
 				LogPrint (eLogError, "I2PControl: runtime exception: ", ex.what ());
-			}	
-		}	
+			}
+		}
 	}
 
 	void I2PControlService::Accept ()
@@ -160,7 +169,7 @@ namespace client
 	void I2PControlService::Handshake (std::shared_ptr<ssl_socket> socket)
 	{
 		socket->async_handshake(boost::asio::ssl::stream_base::server,
-        	std::bind( &I2PControlService::HandleHandshake, this, std::placeholders::_1, socket));
+		std::bind( &I2PControlService::HandleHandshake, this, std::placeholders::_1, socket));
 	}
 
 	void I2PControlService::HandleHandshake (const boost::system::error_code& ecode, std::shared_ptr<ssl_socket> socket)
@@ -168,7 +177,7 @@ namespace client
 		if (ecode) {
 			LogPrint (eLogError, "I2PControl: handshake error: ", ecode.message ());
 			return;
-		}	
+		}
 		//std::this_thread::sleep_for (std::chrono::milliseconds(5));
 		ReadRequest (socket);
 	}
@@ -187,15 +196,15 @@ namespace client
 	}
 
 	void I2PControlService::HandleRequestReceived (const boost::system::error_code& ecode,
- 		size_t bytes_transferred, std::shared_ptr<ssl_socket> socket,
+		size_t bytes_transferred, std::shared_ptr<ssl_socket> socket,
 		std::shared_ptr<I2PControlBuffer> buf)
 	{
-		if (ecode) 
+		if (ecode)
 		{
 			LogPrint (eLogError, "I2PControl: read error: ", ecode.message ());
 			return;
-		} 
-		else 
+		}
+		else
 		{
 			bool isHtml = !memcmp (buf->data (), "POST", 4);
 			try
@@ -243,8 +252,8 @@ namespace client
 					response << "{\"id\":" << id << ",\"result\":{";
 					(this->*(it->second))(pt.get_child ("params"), response);
 					response << "},\"jsonrpc\":\"2.0\"}";
-				} 
-				else 
+				}
+				else
 				{
 					LogPrint (eLogWarning, "I2PControl: unknown method ", method);
 					response << "{\"id\":null,\"error\":";
@@ -287,6 +296,13 @@ namespace client
 	void I2PControlService::InsertParam (std::ostringstream& ss, const std::string& name, double value) const
 	{
 		ss << "\"" << name << "\":" << std::fixed << std::setprecision(2) << value;
+	}
+
+	void I2PControlService::InsertParam (std::ostringstream& ss, const std::string& name, const boost::property_tree::ptree& value) const
+	{
+		std::ostringstream buf;
+		boost::property_tree::write_json (buf, value, false);
+		ss << "\"" << name << "\":" << buf.str();
 	}
 
 	void I2PControlService::SendResponse (std::shared_ptr<ssl_socket> socket,
@@ -337,9 +353,9 @@ namespace client
 		InsertParam (results, "API", api);
 		results << ",";
 		std::string token = boost::lexical_cast<std::string>(i2p::util::GetSecondsSinceEpoch ());
-		m_Tokens.insert (token);	
+		m_Tokens.insert (token);
 		InsertParam (results, "Token", token);
-	}	
+	}
 
 	void I2PControlService::EchoHandler (const boost::property_tree::ptree& params, std::ostringstream& results)
 	{
@@ -364,7 +380,7 @@ namespace client
 			}
 			else
 				LogPrint (eLogError, "I2PControl: I2PControl unknown request: ", it.first);
-		}	
+		}
 	}
 
 	void I2PControlService::PasswordHandler (const std::string& value)
@@ -394,28 +410,28 @@ namespace client
 
 	void I2PControlService::UptimeHandler (std::ostringstream& results)
 	{
-		InsertParam (results, "i2p.router.uptime", (int)i2p::context.GetUptime ()*1000);	
+		InsertParam (results, "i2p.router.uptime", (int)i2p::context.GetUptime ()*1000);
 	}
 
 	void I2PControlService::VersionHandler (std::ostringstream& results)
 	{
 		InsertParam (results, "i2p.router.version", VERSION);
-	}	
+	}
 
 	void I2PControlService::StatusHandler (std::ostringstream& results)
 	{
 		auto dest = i2p::client::context.GetSharedLocalDestination ();
-		InsertParam (results, "i2p.router.status", (dest && dest->IsReady ()) ? "1" : "0"); 
+		InsertParam (results, "i2p.router.status", (dest && dest->IsReady ()) ? "1" : "0");
 	}
 
 	void I2PControlService::NetDbKnownPeersHandler (std::ostringstream& results)
 	{
-		InsertParam (results, "i2p.router.netdb.knownpeers", i2p::data::netdb.GetNumRouters ());	
+		InsertParam (results, "i2p.router.netdb.knownpeers", i2p::data::netdb.GetNumRouters ());
 	}
 
 	void I2PControlService::NetDbActivePeersHandler (std::ostringstream& results)
 	{
-		InsertParam (results, "i2p.router.netdb.activepeers", (int)i2p::transport::transports.GetPeers ().size ());	
+		InsertParam (results, "i2p.router.netdb.activepeers", (int)i2p::transport::transports.GetPeers ().size ());
 	}
 
 	void I2PControlService::NetStatusHandler (std::ostringstream& results)
@@ -457,17 +473,18 @@ namespace client
 		InsertParam (results, "i2p.router.net.total.sent.bytes",     (double)i2p::transport::transports.GetTotalSentBytes ());
 	}
 
+
 // RouterManager
 
 	void I2PControlService::RouterManagerHandler (const boost::property_tree::ptree& params, std::ostringstream& results)
 	{
 		for (auto it = params.begin (); it != params.end (); it++)
 		{
-			if (it != params.begin ()) results << ",";	
+			if (it != params.begin ()) results << ",";
 			LogPrint (eLogDebug, "I2PControl: RouterManager request: ", it->first);
 			auto it1 = m_RouterManagerHandlers.find (it->first);
 			if (it1 != m_RouterManagerHandlers.end ()) {
-				(this->*(it1->second))(results);	
+				(this->*(it1->second))(results);
 			} else
 				LogPrint (eLogError, "I2PControl: RouterManager unknown request: ", it->first);
 		}
@@ -516,7 +533,7 @@ namespace client
 			auto it1 = m_NetworkSettingHandlers.find (it->first);
 			if (it1 != m_NetworkSettingHandlers.end ()) {
 				if (it != params.begin ()) results << ",";
-				(this->*(it1->second))(it->second.data (), results);	
+				(this->*(it1->second))(it->second.data (), results);
 			} else
 				LogPrint (eLogError, "I2PControl: NetworkSetting unknown request: ", it->first);
 		}
@@ -538,7 +555,7 @@ namespace client
 		InsertParam (results, "i2p.router.net.bw.out", bw);
 	}
 
-	// certificate	
+	// certificate
 	void I2PControlService::CreateCertificate (const char *crt_path, const char *key_path)
 	{
 		FILE *f = NULL;
@@ -585,6 +602,179 @@ namespace client
 			LogPrint (eLogError, "I2PControl: can't create RSA key for certificate");
 		}
 		EVP_PKEY_free (pkey);
+	}
+
+// ClientServicesInfo
+
+	void I2PControlService::ClientServicesInfoHandler (const boost::property_tree::ptree& params, std::ostringstream& results)
+	{
+		for (auto it = params.begin (); it != params.end (); it++)
+		{
+			LogPrint (eLogDebug, "I2PControl: ClientServicesInfo request: ", it->first);
+			auto it1 = m_ClientServicesInfoHandlers.find (it->first);
+			if (it1 != m_ClientServicesInfoHandlers.end ())
+			{
+				if (it != params.begin ()) results << ",";
+				(this->*(it1->second))(results);
+			}
+			else
+				LogPrint (eLogError, "I2PControl: ClientServicesInfo unknown request ", it->first);
+		}
+	}
+
+	void I2PControlService::I2PTunnelInfoHandler (std::ostringstream& results)
+	{
+		boost::property_tree::ptree pt;
+		boost::property_tree::ptree client_tunnels, server_tunnels;
+
+		for (auto& it: i2p::client::context.GetClientTunnels ())
+		{
+			auto& ident = it.second->GetLocalDestination ()->GetIdentHash();
+			boost::property_tree::ptree ct;
+			ct.put("address", i2p::client::context.GetAddressBook ().ToAddress(ident));
+			client_tunnels.add_child(it.second->GetName (), ct);
+		}
+
+		auto& serverTunnels = i2p::client::context.GetServerTunnels ();
+		if (!serverTunnels.empty ()) {
+			for (auto& it: serverTunnels)
+			{
+				auto& ident = it.second->GetLocalDestination ()->GetIdentHash();
+				boost::property_tree::ptree st;
+				st.put("address", i2p::client::context.GetAddressBook ().ToAddress(ident));
+				st.put("port", it.second->GetLocalPort ());
+				server_tunnels.add_child(it.second->GetName (), st);
+			}
+		}
+
+		auto& clientForwards = i2p::client::context.GetClientForwards ();
+		if (!clientForwards.empty ())
+		{
+			for (auto& it: clientForwards)
+			{
+				auto& ident = it.second->GetLocalDestination ()->GetIdentHash();
+				boost::property_tree::ptree ct;
+				ct.put("address", i2p::client::context.GetAddressBook ().ToAddress(ident));
+				client_tunnels.add_child(it.second->GetName (), ct);
+			}
+		}
+
+		auto& serverForwards = i2p::client::context.GetServerForwards ();
+		if (!serverForwards.empty ())
+		{
+			for (auto& it: serverForwards)
+			{
+				auto& ident = it.second->GetLocalDestination ()->GetIdentHash();
+				boost::property_tree::ptree st;
+				st.put("address", i2p::client::context.GetAddressBook ().ToAddress(ident));
+				server_tunnels.add_child(it.second->GetName (), st);
+			}
+		}
+
+		pt.add_child("client", client_tunnels);
+		pt.add_child("server", server_tunnels);
+
+		InsertParam (results, "I2PTunnel", pt);
+	}
+
+	void I2PControlService::HTTPProxyInfoHandler (std::ostringstream& results)
+	{
+		boost::property_tree::ptree pt;
+
+		auto httpProxy = i2p::client::context.GetHttpProxy ();
+		if (httpProxy)
+		{
+			auto& ident = httpProxy->GetLocalDestination ()->GetIdentHash();
+			pt.put("enabled", true);
+			pt.put("address", i2p::client::context.GetAddressBook ().ToAddress(ident));
+		}
+		else
+			pt.put("enabled", false);
+
+		InsertParam (results, "HTTPProxy", pt);
+	}
+
+	void I2PControlService::SOCKSInfoHandler (std::ostringstream& results)
+	{
+		boost::property_tree::ptree pt;
+
+		auto socksProxy = i2p::client::context.GetSocksProxy ();
+		if (socksProxy)
+		{
+			auto& ident = socksProxy->GetLocalDestination ()->GetIdentHash();
+			pt.put("enabled", true);
+			pt.put("address", i2p::client::context.GetAddressBook ().ToAddress(ident));
+		}
+		else
+			pt.put("enabled", false);
+
+		InsertParam (results, "SOCKS", pt);
+	}
+
+	void I2PControlService::SAMInfoHandler (std::ostringstream& results)
+	{
+		boost::property_tree::ptree pt;
+		auto sam = i2p::client::context.GetSAMBridge ();
+		if (sam)
+		{
+			pt.put("enabled", true);
+			boost::property_tree::ptree sam_sessions;
+			for (auto& it: sam->GetSessions ())
+			{
+				boost::property_tree::ptree sam_session, sam_session_sockets;
+				auto& name = it.second->localDestination->GetNickname ();
+				auto& ident = it.second->localDestination->GetIdentHash();
+				sam_session.put("name", name);
+				sam_session.put("address", i2p::client::context.GetAddressBook ().ToAddress(ident));
+
+				for (const auto& socket: sam->ListSockets(it.first))
+				{
+					boost::property_tree::ptree stream;
+					stream.put("type", socket->GetSocketType ());
+					stream.put("peer", socket->GetSocket ().remote_endpoint());
+
+					sam_session_sockets.push_back(std::make_pair("", stream));
+				}
+				sam_session.add_child("sockets", sam_session_sockets);
+				sam_sessions.add_child(it.first, sam_session);
+			}
+
+			pt.add_child("sessions", sam_sessions);
+		}
+		else
+			pt.put("enabled", false);
+
+		InsertParam (results, "SAM", pt);
+	}
+
+	void I2PControlService::BOBInfoHandler (std::ostringstream& results)
+	{
+		boost::property_tree::ptree pt;
+		auto bob = i2p::client::context.GetBOBCommandChannel ();
+		if (bob)
+		{
+			/* TODO more info */
+			pt.put("enabled", true);
+		}
+		else
+			pt.put("enabled", false);
+
+		InsertParam (results, "BOB", pt);
+	}
+
+	void I2PControlService::I2CPInfoHandler (std::ostringstream& results)
+	{
+		boost::property_tree::ptree pt;
+		auto i2cp = i2p::client::context.GetI2CPServer ();
+		if (i2cp)
+		{
+			/* TODO more info */
+			pt.put("enabled", true);
+		}
+		else
+			pt.put("enabled", false);
+
+		InsertParam (results, "I2CP", pt);
 	}
 }
 }

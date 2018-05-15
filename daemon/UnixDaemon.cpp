@@ -13,6 +13,7 @@
 #include "Config.h"
 #include "FS.h"
 #include "Log.h"
+#include "Tunnel.h"
 #include "RouterContext.h"
 #include "ClientContext.h"
 
@@ -137,11 +138,14 @@ namespace i2p
 					LogPrint(eLogError, "Daemon: could not create pid file ", pidfile, ": ", strerror(errno));
 					return false;
 				}
+
+#ifndef ANDROID
 				if (lockf(pidFH, F_TLOCK, 0) != 0)
 				{
 					LogPrint(eLogError, "Daemon: could not lock pid file ", pidfile, ": ", strerror(errno));
 					return false;
 				}
+#endif
 				char pid[10];
 				sprintf(pid, "%d\n", getpid());
 				ftruncate(pidFH, 0);
@@ -183,7 +187,7 @@ namespace i2p
 				if (gracefulShutdownInterval)
 				{
 					gracefulShutdownInterval--; // - 1 second
-					if (gracefulShutdownInterval <= 0)
+					if (gracefulShutdownInterval <= 0 || i2p::tunnel::tunnels.CountTransitTunnels() <= 0)
 					{
 						LogPrint(eLogInfo, "Graceful shutdown");
 						return;

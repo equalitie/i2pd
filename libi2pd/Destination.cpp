@@ -24,9 +24,9 @@ namespace client
 		int outQty  = DEFAULT_OUTBOUND_TUNNELS_QUANTITY;
 		int numTags = DEFAULT_TAGS_TO_SEND;
 		std::shared_ptr<std::vector<i2p::data::IdentHash> > explicitPeers;
-		try 
+		try
 		{
-			if (params) 
+			if (params)
 			{
 				auto it = params->find (I2CP_PARAM_INBOUND_TUNNEL_LENGTH);
 				if (it != params->end ())
@@ -59,16 +59,16 @@ namespace client
 					}
 				}
 				it = params->find (I2CP_PARAM_INBOUND_NICKNAME);
-				if (it != params->end ()) m_Nickname = it->second; 
+				if (it != params->end ()) m_Nickname = it->second;
 				else // try outbound
-				{	
+				{
 					it = params->find (I2CP_PARAM_OUTBOUND_NICKNAME);
-					if (it != params->end ()) m_Nickname = it->second; 
+					if (it != params->end ()) m_Nickname = it->second;
 					// otherwise we set deafult nickname in Start when we know local address
 				}
 			}
-		} 
-		catch (std::exception & ex) 
+		}
+		catch (std::exception & ex)
 		{
 			LogPrint(eLogError, "Destination: unable to parse parameters for destination: ", ex.what());
 		}
@@ -169,6 +169,46 @@ namespace client
 			return false;
 	}
 
+	bool LeaseSetDestination::Reconfigure(std::map<std::string, std::string> params)
+	{
+		
+		auto itr = params.find("i2cp.dontPublishLeaseSet");
+		if (itr != params.end())
+		{
+			m_IsPublic = itr->second != "true";
+		}
+		
+		int inLen, outLen, inQuant, outQuant, numTags, minLatency, maxLatency;
+		std::map<std::string, int&> intOpts = {
+			{I2CP_PARAM_INBOUND_TUNNEL_LENGTH, inLen},
+			{I2CP_PARAM_OUTBOUND_TUNNEL_LENGTH, outLen},
+			{I2CP_PARAM_INBOUND_TUNNELS_QUANTITY, inQuant},
+			{I2CP_PARAM_OUTBOUND_TUNNELS_QUANTITY, outQuant},
+			{I2CP_PARAM_TAGS_TO_SEND, numTags},
+			{I2CP_PARAM_MIN_TUNNEL_LATENCY, minLatency},
+			{I2CP_PARAM_MAX_TUNNEL_LATENCY, maxLatency}
+		};
+
+		auto pool = GetTunnelPool();
+		inLen = pool->GetNumInboundHops();
+		outLen = pool->GetNumOutboundHops();
+		inQuant = pool->GetNumInboundTunnels();
+		outQuant = pool->GetNumOutboundTunnels();
+		minLatency = 0;
+		maxLatency = 0;
+		
+		for (auto & opt : intOpts)
+		{
+			itr = params.find(opt.first);
+			if(itr != params.end())
+			{
+				opt.second = std::stoi(itr->second);
+			}
+		}
+		pool->RequireLatency(minLatency, maxLatency);
+		return pool->Reconfigure(inLen, outLen, inQuant, outQuant);
+	}
+	
 	std::shared_ptr<const i2p::data::LeaseSet> LeaseSetDestination::FindLeaseSet (const i2p::data::IdentHash& ident)
 	{
 		std::shared_ptr<i2p::data::LeaseSet> remoteLS;
@@ -241,8 +281,12 @@ namespace client
 		i2p::garlic::GarlicDestination::SetLeaseSetUpdated ();
 		if (m_IsPublic)
 		{
-			m_PublishVerificationTimer.cancel ();
-			Publish ();
+			auto s = shared_from_this ();
+			m_Service.post ([s](void)
+			{
+				s->m_PublishVerificationTimer.cancel ();
+				s->Publish ();
+			});	
 		}
 	}
 
@@ -285,17 +329,17 @@ namespace client
 		switch (typeID)
 		{
 			case eI2NPData:
-				HandleDataMessage (buf + I2NP_HEADER_SIZE, bufbe16toh (buf + I2NP_HEADER_SIZE_OFFSET));
+				HandleDataMessage (buf + I2NP_HEADER_SIZE, GetI2NPMessageLength(buf, len) - I2NP_HEADER_SIZE);
 			break;
 			case eI2NPDeliveryStatus:
 				// we assume tunnel tests non-encrypted
 				HandleDeliveryStatusMessage (CreateI2NPMessage (buf, GetI2NPMessageLength (buf, len), from));
 			break;
 			case eI2NPDatabaseStore:
-				HandleDatabaseStoreMessage (buf + I2NP_HEADER_SIZE, bufbe16toh (buf + I2NP_HEADER_SIZE_OFFSET));
+				HandleDatabaseStoreMessage (buf + I2NP_HEADER_SIZE, GetI2NPMessageLength(buf, len) - I2NP_HEADER_SIZE);
 			break;
 			case eI2NPDatabaseSearchReply:
-				HandleDatabaseSearchReplyMessage (buf + I2NP_HEADER_SIZE, bufbe16toh (buf + I2NP_HEADER_SIZE_OFFSET));
+				HandleDatabaseSearchReplyMessage (buf + I2NP_HEADER_SIZE, GetI2NPMessageLength(buf, len) - I2NP_HEADER_SIZE);
 			break;
 			default:
 				i2p::HandleI2NPMessage (CreateI2NPMessage (buf, GetI2NPMessageLength (buf, len), from));
@@ -492,7 +536,7 @@ namespace client
 				m_PublishReplyToken = 0;
 				if (GetIdentity ()->GetCryptoKeyType () == i2p::data::CRYPTO_KEY_TYPE_ELGAMAL)
 				{
-					LogPrint (eLogWarning, "Destination: Publish confirmation was not received in ", PUBLISH_CONFIRMATION_TIMEOUT,  " seconds, will try again");				
+					LogPrint (eLogWarning, "Destination: Publish confirmation was not received in ", PUBLISH_CONFIRMATION_TIMEOUT,  " seconds, will try again");
 					Publish ();
 				}
 				else
@@ -503,7 +547,7 @@ namespace client
 					m_PublishVerificationTimer.expires_from_now (boost::posix_time::seconds(PUBLISH_VERIFICATION_TIMEOUT));
 					m_PublishVerificationTimer.async_wait (std::bind (&LeaseSetDestination::HandlePublishVerificationTimer,
 			shared_from_this (), std::placeholders::_1));
-					
+
 				}
 			}
 		}
@@ -728,14 +772,14 @@ namespace client
 		if (isPublic)
 			PersistTemporaryKeys ();
 		else
-			i2p::data::PrivateKeys::GenerateCryptoKeyPair(GetIdentity ()->GetCryptoKeyType (), 
+			i2p::data::PrivateKeys::GenerateCryptoKeyPair(GetIdentity ()->GetCryptoKeyType (),
 				m_EncryptionPrivateKey, m_EncryptionPublicKey);
-		m_Decryptor = m_Keys.CreateDecryptor (m_EncryptionPrivateKey); 
+		m_Decryptor = m_Keys.CreateDecryptor (m_EncryptionPrivateKey);
 		if (isPublic)
 			LogPrint (eLogInfo, "Destination: Local address ", GetIdentHash().ToBase32 (), " created");
 
 		// extract streaming params
-		if (params) 
+		if (params)
 		{
 			auto it = params->find (I2CP_PARAM_STREAMING_INITIAL_ACK_DELAY);
 			if (it != params->end ())
@@ -780,7 +824,7 @@ namespace client
 				delete m_DatagramDestination;
 				m_DatagramDestination = nullptr;
 			}
-		  	return true;
+			return true;
 		}
 		else
 			return false;
@@ -815,6 +859,11 @@ namespace client
 	void ClientDestination::HandleDataMessage (const uint8_t * buf, size_t len)
 	{
 		uint32_t length = bufbe32toh (buf);
+		if(length > len - 4)
+		{
+			LogPrint(eLogError, "Destination: Data message length ", length, " exceeds buffer length ", len);
+			return;
+		}
 		buf += 4;
 		// we assume I2CP payload
 		uint16_t fromPort = bufbe16toh (buf + 4), // source
@@ -956,7 +1005,7 @@ namespace client
 		}
 
 		LogPrint (eLogInfo, "Destination: Creating new temporary keys for address ", ident, ".b32.i2p");
-		i2p::data::PrivateKeys::GenerateCryptoKeyPair(GetIdentity ()->GetCryptoKeyType (), 
+		i2p::data::PrivateKeys::GenerateCryptoKeyPair(GetIdentity ()->GetCryptoKeyType (),
 				m_EncryptionPrivateKey, m_EncryptionPublicKey);
 
 		std::ofstream f1 (path, std::ofstream::binary | std::ofstream::out);
@@ -984,7 +1033,7 @@ namespace client
 	bool ClientDestination::Decrypt (const uint8_t * encrypted, uint8_t * data, BN_CTX * ctx) const
 	{
 		if (m_Decryptor)
-			return m_Decryptor->Decrypt (encrypted, data, ctx);
+			return m_Decryptor->Decrypt (encrypted, data, ctx, true);
 		else
 			LogPrint (eLogError, "Destinations: decryptor is not set");
 		return false;

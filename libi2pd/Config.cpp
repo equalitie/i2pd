@@ -73,6 +73,7 @@ namespace config {
 			("limits.transittunnels", value<uint16_t>()->default_value(2500), "Maximum active transit sessions (default:2500)")
 			("limits.ntcpsoft", value<uint16_t>()->default_value(0),          "Threshold to start probabalistic backoff with ntcp sessions (default: use system limit)")
 			("limits.ntcphard", value<uint16_t>()->default_value(0),          "Maximum number of ntcp sessions (default: use system limit)")
+			("limits.ntcpthreads", value<uint16_t>()->default_value(1),       "Maximum number of threads used by NTCP DH worker (default: 1)")
 		;
 
 		options_description httpserver("HTTP Server options");
@@ -83,6 +84,8 @@ namespace config {
 			("http.auth", value<bool>()->default_value(false),                 "Enable Basic HTTP auth for webconsole")
 			("http.user", value<std::string>()->default_value("i2pd"),         "Username for basic auth")
 			("http.pass", value<std::string>()->default_value(""),             "Password for basic auth (default: random, see logs)")
+			("http.strictheaders", value<bool>()->default_value(true),         "Enable strict host checking on WebUI")
+			("http.hostname", value<std::string>()->default_value("localhost"),"Expected hostname for WebUI")
 		;
 
 		options_description httpproxy("HTTP Proxy options");
@@ -188,7 +191,7 @@ namespace config {
 				// "https://uk.reseed.i2p2.no:444/," // mamoth's shit
 				"https://i2p-0.manas.ca:8443/,"
 				"https://download.xxlspeed.com/,"
-				"https://reseed-ru.lngserv.ru/,"
+				"https://reseed-fr.i2pd.xyz/,"
 				"https://reseed.atomike.ninja/,"
 				"https://reseed.memcpy.io/,"
 				"https://reseed.onion.im/,"

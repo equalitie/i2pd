@@ -96,6 +96,10 @@ namespace client
 
 			virtual bool Start ();
 			virtual bool Stop ();
+
+			/** i2cp reconfigure */
+			virtual bool Reconfigure(std::map<std::string, std::string> i2cpOpts);
+		
 			bool IsRunning () const { return m_IsRunning; };
 			boost::asio::io_service& GetService () { return m_Service; };
 			std::shared_ptr<i2p::tunnel::TunnelPool> GetTunnelPool () { return m_Pool; };
@@ -190,9 +194,9 @@ namespace client
 			void Sign (const uint8_t * buf, int len, uint8_t * signature) const { m_Keys.Sign (buf, len, signature); };
 
 			// ref counter
-			int Acquire () { return ++m_RefCounter; }; 
+			int Acquire () { return ++m_RefCounter; };
 			int Release () { return --m_RefCounter; };
-			int GetRefCounter () const { return m_RefCounter; }; 
+			int GetRefCounter () const { return m_RefCounter; };
 
 			// streaming
 			std::shared_ptr<i2p::stream::StreamingDestination> CreateStreamingDestination (int port, bool gzip = true); // additional
@@ -239,7 +243,7 @@ namespace client
 			int m_StreamingAckDelay;
 			std::shared_ptr<i2p::stream::StreamingDestination> m_StreamingDestination; // default
 			std::map<uint16_t, std::shared_ptr<i2p::stream::StreamingDestination> > m_StreamingDestinationsByPorts;
-      		i2p::datagram::DatagramDestination * m_DatagramDestination;
+			i2p::datagram::DatagramDestination * m_DatagramDestination;
 			int m_RefCounter; // how many clients(tunnels) use this destination
 
 			boost::asio::deadline_timer m_ReadyChecker;

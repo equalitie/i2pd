@@ -73,8 +73,8 @@ namespace client
 			std::shared_ptr<ClientDestination> CreateNewMatchedTunnelDestination(const i2p::data::PrivateKeys &keys, const std::string & name, const std::map<std::string, std::string> * params = nullptr);
 			void DeleteLocalDestination (std::shared_ptr<ClientDestination> destination);
 			std::shared_ptr<ClientDestination> FindLocalDestination (const i2p::data::IdentHash& destination) const;
-			bool LoadPrivateKeys (i2p::data::PrivateKeys& keys, const std::string& filename, 
-				i2p::data::SigningKeyType sigType = i2p::data::SIGNING_KEY_TYPE_ECDSA_SHA256_P256, 
+			bool LoadPrivateKeys (i2p::data::PrivateKeys& keys, const std::string& filename,
+				i2p::data::SigningKeyType sigType = i2p::data::SIGNING_KEY_TYPE_ECDSA_SHA256_P256,
 				i2p::data::CryptoKeyType cryptoType = i2p::data::CRYPTO_KEY_TYPE_ELGAMAL);
 
 			AddressBook& GetAddressBook () { return m_AddressBook; };
@@ -87,6 +87,8 @@ namespace client
 		private:
 
 			void ReadTunnels ();
+			void ReadHttpProxy ();
+			void ReadSocksProxy ();
 			template<typename Section, typename Type>
 			std::string GetI2CPOption (const Section& section, const std::string& name, const Type& value) const;
 			template<typename Section>
@@ -99,6 +101,8 @@ namespace client
 			template<typename Visitor>
 			void VisitTunnels (Visitor v); // Visitor: (I2PService *) -> bool, true means retain
 
+			void CreateNewSharedLocalDestination (); 
+
 		private:
 
 			std::mutex m_DestinationsMutex;
@@ -109,12 +113,12 @@ namespace client
 
 			i2p::proxy::HTTPProxy * m_HttpProxy;
 			i2p::proxy::SOCKSProxy * m_SocksProxy;
-			std::map<boost::asio::ip::tcp::endpoint, std::unique_ptr<I2PService> > m_ClientTunnels; // local endpoint->tunnel
-			std::map<std::pair<i2p::data::IdentHash, int>, std::unique_ptr<I2PServerTunnel> > m_ServerTunnels; // <destination,port>->tunnel
+			std::map<boost::asio::ip::tcp::endpoint, std::shared_ptr<I2PService> > m_ClientTunnels; // local endpoint->tunnel
+			std::map<std::pair<i2p::data::IdentHash, int>, std::shared_ptr<I2PServerTunnel> > m_ServerTunnels; // <destination,port>->tunnel
 
 			std::mutex m_ForwardsMutex;
-			std::map<boost::asio::ip::udp::endpoint, std::unique_ptr<I2PUDPClientTunnel> > m_ClientForwards; // local endpoint -> udp tunnel
-			std::map<std::pair<i2p::data::IdentHash, int>, std::unique_ptr<I2PUDPServerTunnel> > m_ServerForwards; // <destination,port> -> udp tunnel
+			std::map<boost::asio::ip::udp::endpoint, std::shared_ptr<I2PUDPClientTunnel> > m_ClientForwards; // local endpoint -> udp tunnel
+			std::map<std::pair<i2p::data::IdentHash, int>, std::shared_ptr<I2PUDPServerTunnel> > m_ServerForwards; // <destination,port> -> udp tunnel
 
 			SAMBridge * m_SamBridge;
 			BOBCommandChannel * m_BOBCommandChannel;
