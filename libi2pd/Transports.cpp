@@ -55,6 +55,9 @@ namespace transport
 				CreateDHKeysPairs (num);
 				total += num;
 			}
+
+			if (!m_IsRunning) return;
+
 			if (total >= 20)
 			{
 				LogPrint (eLogWarning, "Transports: ", total, " DH keys generated at the time");
