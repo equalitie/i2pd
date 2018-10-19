@@ -14,6 +14,7 @@ namespace i2p
 {
 	const char ROUTER_INFO[] = "router.info";
 	const char ROUTER_KEYS[] = "router.keys";
+	const char NTCP2_KEYS[] = "ntcp2.keys";	
 	const int ROUTER_INFO_UPDATE_INTERVAL = 1800; // 30 minutes
 
 	enum RouterStatus
@@ -32,6 +33,15 @@ namespace i2p
 
 	class RouterContext: public i2p::garlic::GarlicDestination
 	{
+		private:
+
+			struct NTCP2PrivateKeys 
+			{
+				uint8_t staticPublicKey[32];
+				uint8_t staticPrivateKey[32];
+				uint8_t iv[16];
+			};			
+
 		public:
 
 			RouterContext ();
@@ -49,6 +59,10 @@ namespace i2p
 				return std::shared_ptr<i2p::garlic::GarlicDestination> (this,
 					[](i2p::garlic::GarlicDestination *) {});
 			}
+			const uint8_t * GetNTCP2StaticPublicKey () const { return m_NTCP2Keys ? m_NTCP2Keys->staticPublicKey : nullptr; };
+			const uint8_t * GetNTCP2StaticPrivateKey () const { return m_NTCP2Keys ? m_NTCP2Keys->staticPrivateKey : nullptr; };
+			const uint8_t * GetNTCP2IV () const { return m_NTCP2Keys ? m_NTCP2Keys->iv : nullptr; };
+			i2p::crypto::X25519Keys& GetStaticKeys (); 
 
 			uint32_t GetUptime () const;
 			uint32_t GetStartupTime () const { return m_StartupTime; };
@@ -63,8 +77,10 @@ namespace i2p
 			void SetNetID (int netID) { m_NetID = netID; };
 			bool DecryptTunnelBuildRecord (const uint8_t * encrypted, uint8_t * data, BN_CTX * ctx) const;
 
-			void UpdatePort (int port); // called from Daemon
+			void UpdatePort (int port); // called from Daemon	
 			void UpdateAddress (const boost::asio::ip::address& host);	// called from SSU or Daemon
+			void PublishNTCP2Address (int port, bool publish = true);
+			void UpdateNTCP2Address (bool enable);
 			bool AddIntroducer (const i2p::data::RouterInfo::Introducer& introducer);
 			void RemoveIntroducer (const boost::asio::ip::udp::endpoint& e);
 			bool IsUnreachable () const;
@@ -85,7 +101,9 @@ namespace i2p
 			void SetSupportsV4 (bool supportsV4);
 
 			void UpdateNTCPV6Address (const boost::asio::ip::address& host); // called from NTCP session
+			void UpdateNTCP2V6Address (const boost::asio::ip::address& host); // called from NTCP2 session
 			void UpdateStats ();
+			void UpdateTimestamp (uint64_t ts); // in seconds, called from NetDb before publishing
 			void CleanupDestination ();	// garlic destination
 
 			// implements LocalDestination
@@ -108,6 +126,7 @@ namespace i2p
 			void CreateNewRouter ();
 			void NewRouterInfo ();
 			void UpdateRouterInfo ();
+			void NewNTCP2Keys ();
 			bool Load ();
 			void SaveKeys ();
 
@@ -116,7 +135,7 @@ namespace i2p
 			i2p::data::RouterInfo m_RouterInfo;
 			i2p::data::PrivateKeys m_Keys;
 			std::shared_ptr<i2p::crypto::CryptoKeyDecryptor> m_Decryptor;
-			uint64_t m_LastUpdateTime;
+			uint64_t m_LastUpdateTime; // in seconds
 			bool m_AcceptsTunnels, m_IsFloodfill;
 			uint64_t m_StartupTime; // in seconds since epoch
 			uint64_t m_BandwidthLimit; // allowed bandwidth
@@ -125,6 +144,8 @@ namespace i2p
 			RouterError m_Error;
 			int m_NetID;
 			std::mutex m_GarlicMutex;
+			std::unique_ptr<NTCP2PrivateKeys> m_NTCP2Keys;
+			std::unique_ptr<i2p::crypto::X25519Keys> m_StaticKeys;
 	};
 
 	extern RouterContext context;

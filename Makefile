@@ -18,6 +18,14 @@ USE_AVX		:= yes
 USE_STATIC	:= no
 USE_MESHNET	:= no
 USE_UPNP	:= no
+DEBUG		:= yes
+
+ifeq ($(DEBUG),yes)
+	CXX_DEBUG = -g
+else
+	CXX_DEBUG = -Os
+	LD_DEBUG = -s
+endif
 
 ifeq ($(WEBSOCKETS),1)
 	NEEDED_CXXFLAGS += -DWITH_EVENTS
@@ -122,6 +130,8 @@ doxygen:
 .PHONY: deps
 .PHONY: doxygen
 .PHONY: dist
+.PHONY: last-dist
 .PHONY: api
 .PHONY: api_client
 .PHONY: mk_obj_dir
+.PHONY: install

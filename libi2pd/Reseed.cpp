@@ -219,7 +219,7 @@ namespace data
 						BN_CTX * bnctx = BN_CTX_new ();
 						BIGNUM * s = BN_new (), * n = BN_new ();
 						BN_bin2bn (signature, signatureLength, s);
-						BN_bin2bn (it->second, i2p::crypto::RSASHA5124096_KEY_LENGTH, n);
+						BN_bin2bn (it->second, 512, n); // RSA 4096 assumed
 						BN_mod_exp (s, s, i2p::crypto::GetRSAE (), n, bnctx); // s = s^e mod n
 						uint8_t * enSigBuf = new uint8_t[signatureLength];
 						i2p::crypto::bn2buf (s, enSigBuf, signatureLength);
@@ -300,7 +300,7 @@ namespace data
 				s.read (localFileName, fileNameLength);
 				localFileName[fileNameLength] = 0;
 				s.seekg (extraFieldLength, std::ios::cur);
-				// take care about data desriptor if presented
+				// take care about data descriptor if presented
 				if (bitFlag & ZIP_BIT_FLAG_DATA_DESCRIPTOR)
 				{
 					size_t pos = s.tellg ();
