@@ -1,6 +1,12 @@
 cmake_minimum_required ( VERSION 2.8.12 )
+
 # this addresses CMP0059 with CMake > 3.3 for PCH flags
-cmake_policy( VERSION 2.8.12 )
+if(${CMAKE_VERSION} VERSION_LESS 3.22)
+  cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
+else()
+  cmake_policy(VERSION 3.22)
+endif()
+
 project ( "i2pd" )
 
 # for debugging
