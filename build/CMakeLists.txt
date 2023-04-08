@@ -95,7 +95,7 @@ if (WITH_WEBSOCKETS)
 endif ()
 
 if (WIN32 OR MSYS)
-  list (APPEND LIBI2PD_SRC "${CMAKE_SOURCE_DIR}/I2PEndian.cpp")
+  list (APPEND LIBI2PD_SRC "${LIBI2PD_SRC_DIR}/I2PEndian.cpp")
 endif ()
 
 if (WITH_I2LUA)
