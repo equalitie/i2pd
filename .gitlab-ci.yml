@@ -11,7 +11,7 @@ build:
   tags:
     - docker
   script:
-    - apt install 
+    - apt install -y
         libboost-chrono-dev 
         libboost-date-time-dev 
         libboost-filesystem-dev 
