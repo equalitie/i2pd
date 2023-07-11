@@ -18,6 +18,5 @@ build:
         libboost-program-options-dev 
         libboost-system-dev 
         libboost-thread-dev
-    - git clone https://gitlab.com/equalitie/i2pd.git
-    - cmake -S i2pd/build -B build-dir -DWITH_BINARY=OFF -WITH_GUI=OFF
-    - cmake --build build-dir
+    - cmake -S ./build -B cmake-build -DWITH_BINARY=OFF -WITH_GUI=OFF
+    - cmake --build cmake-build
