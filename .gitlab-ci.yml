@@ -1,0 +1,23 @@
+image: registry.gitlab.com/equalitie/ouinet:latest
+
+stages:
+  - build
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+build:
+  stage: build
+  tags:
+    - docker
+  script:
+    - apt install -y
+        libboost-chrono-dev 
+        libboost-date-time-dev 
+        libboost-filesystem-dev 
+        libboost-program-options-dev 
+        libboost-system-dev 
+        libboost-thread-dev
+    - git clone https://gitlab.com/equalitie/i2pd.git
+    - cmake -S i2pd/build -B build-dir -DWITH_BINARY=OFF -WITH_GUI=OFF
+    - cmake --build build-dir
