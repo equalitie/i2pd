@@ -1,3 +1,5 @@
+[![pipeline status](https://gitlab.com/equalitie/i2pd/badges/main/pipeline.svg)](https://gitlab.com/equalitie/i2pd/-/commits/main) 
+
 i2pd
 ====
 
