@@ -1,22 +1,43 @@
-image: registry.gitlab.com/equalitie/ouinet:latest
-
 stages:
   - build
 
-variables:
-  GIT_SUBMODULE_STRATEGY: recursive
-
-build:
+.build:
   stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
   tags:
     - docker
   script:
-    - apt install -y
-        libboost-chrono-dev 
-        libboost-date-time-dev 
-        libboost-filesystem-dev 
-        libboost-program-options-dev 
-        libboost-system-dev 
-        libboost-thread-dev
-    - cmake -S ./build -B cmake-build -DWITH_BINARY=OFF -WITH_GUI=OFF
+    # Install dependencies
+    - apt update && apt install -y
+        build-essential
+        cmake
+        git
+        libssl-dev
+        wget
+        zlib1g-dev
+
+    # Build boost
+    - boost="boost_"$BOOST_MAJOR"_"$BOOST_MINOR"_"$BOOST_PATCH
+    - wget --quiet "https://boostorg.jfrog.io/artifactory/main/release/"$BOOST_MAJOR"."$BOOST_MINOR"."$BOOST_PATCH"/source/"$boost".tar.bz2"
+    - tar -xjf $boost".tar.bz2"
+    - cd $boost
+    - ./bootstrap.sh
+    - ./b2 -j3 -d+0 --link=static --with-system --with-test --with-coroutine --with-date_time
+                    --with-atomic --with-filesystem --with-program_options
+    - cd ..
+
+    # Build i2p
+    - cmake -S ./build -B cmake-build
+        -DWITH_BINARY=OFF
+        -WITH_GUI=OFF
+        -DBOOST_ROOT=$CI_PROJECT_DIR"/"$boost
     - cmake --build cmake-build
+
+boost-1.71:
+  extends: ".build"
+  image: debian:buster
+  variables:
+    BOOST_MAJOR: "1"
+    BOOST_MINOR: "71"
+    BOOST_PATCH: "0"
